@@ -9,96 +9,110 @@ import (
 	"strconv"
 )
 
-func readFileHeader(reader io.Reader) (bool, error) {
-	var isFixed bool
+// Various header types
+const (
+	TypeFileHeader   = "1200"
+	TypeCheckIndex   = "1201"
+	TypeImageHeader  = "1202"
+	TypeImageData    = "1203"
+	TypeCheckTrailer = "1204"
+	TypeFileTrailer  = "1209"
+)
 
+type disbursement struct {
+	isFixed bool
+
+	reader io.Reader
+}
+
+func (d *disbursement) parseFileHeader() error {
 	// File ID
 	{
 		p := make([]byte, 15)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
-			return isFixed, err
+			return err
 		}
 	}
 
 	// Request ID
 	{
 		p := make([]byte, 15)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
-			return isFixed, err
+			return err
 		}
 	}
 
 	// File Version
 	{
 		p := make([]byte, 4)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
-			return isFixed, err
+			return err
 		}
 	}
 
 	// File creation date
 	{
 		p := make([]byte, 8)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
-			return isFixed, err
+			return err
 		}
 	}
 
 	// File creation time
 	{
 		p := make([]byte, 6)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
-			return isFixed, err
+			return err
 		}
 	}
 
 	// Number of check records
 	{
 		p := make([]byte, 6)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
-			return isFixed, err
+			return err
 		}
 	}
 
 	// Record size
 	{
 		p := make([]byte, 4)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
-			return isFixed, err
+			return err
 		}
 
 		// Read filler
 		switch string(p) {
 		// Fixed
 		case "0256":
-			isFixed = true
+			d.isFixed = true
 
 			filler := make([]byte, 194)
-			_, err := reader.Read(filler)
+			_, err := d.reader.Read(filler)
 			if err != nil {
-				return isFixed, err
+				return err
 			}
 		// Variable
 		case "0090":
 			filler := make([]byte, 28)
-			_, err := reader.Read(filler)
+			_, err := d.reader.Read(filler)
 			if err != nil {
-				return isFixed, err
+				return err
 			}
 		}
 	}
 
-	return isFixed, nil
+	return nil
 }
 
-func readCheckIndex(reader io.Reader, isFixed bool) (int, string, error) {
+func (d *disbursement) parseCheckIndex() (int, string, error) {
 	var (
 		numImages int
 		checkNo   string
@@ -107,7 +121,7 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, string, error) {
 	// Bank number
 	{
 		p := make([]byte, 4)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return numImages, checkNo, err
 		}
@@ -116,7 +130,7 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, string, error) {
 	// Routing transit number
 	{
 		p := make([]byte, 9)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return numImages, checkNo, err
 		}
@@ -125,7 +139,7 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, string, error) {
 	// Account number
 	{
 		p := make([]byte, 20)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return numImages, checkNo, err
 		}
@@ -134,7 +148,7 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, string, error) {
 	// Check number
 	{
 		p := make([]byte, 15)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return numImages, checkNo, err
 		}
@@ -145,7 +159,7 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, string, error) {
 	// Amount
 	{
 		p := make([]byte, 10)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return numImages, checkNo, err
 		}
@@ -155,7 +169,7 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, string, error) {
 	// Seq number
 	{
 		p := make([]byte, 15)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return numImages, checkNo, err
 		}
@@ -164,7 +178,7 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, string, error) {
 	// Posted date
 	{
 		p := make([]byte, 8)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return numImages, checkNo, err
 		}
@@ -173,7 +187,7 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, string, error) {
 	// Number of images
 	{
 		p := make([]byte, 4)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return numImages, checkNo, err
 		}
@@ -187,12 +201,12 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, string, error) {
 	// Filler
 	{
 		var fillerLength = 1
-		if isFixed {
+		if d.isFixed {
 			fillerLength = 167
 		}
 
 		p := make([]byte, fillerLength)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return numImages, checkNo, err
 		}
@@ -201,7 +215,7 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, string, error) {
 	return numImages, checkNo, nil
 }
 
-func readImageHeader(reader io.Reader, isFixed bool) (int, string, error) {
+func (d *disbursement) parseImageHeader() (int, string, error) {
 	var (
 		numImages int
 		imgType   string
@@ -209,7 +223,7 @@ func readImageHeader(reader io.Reader, isFixed bool) (int, string, error) {
 	// Image type
 	{
 		p := make([]byte, 4)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return numImages, imgType, err
 		}
@@ -220,7 +234,7 @@ func readImageHeader(reader io.Reader, isFixed bool) (int, string, error) {
 	// Image side
 	{
 		p := make([]byte, 1)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return numImages, imgType, err
 		}
@@ -229,7 +243,7 @@ func readImageHeader(reader io.Reader, isFixed bool) (int, string, error) {
 	// Number of records
 	{
 		p := make([]byte, 4)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return numImages, imgType, err
 		}
@@ -243,7 +257,7 @@ func readImageHeader(reader io.Reader, isFixed bool) (int, string, error) {
 	// Image data record length
 	{
 		p := make([]byte, 6)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return numImages, imgType, err
 		}
@@ -252,12 +266,12 @@ func readImageHeader(reader io.Reader, isFixed bool) (int, string, error) {
 	// Filler
 	{
 		var fillerLength = 71
-		if isFixed {
+		if d.isFixed {
 			fillerLength = 231
 		}
 
 		p := make([]byte, fillerLength)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return numImages, imgType, err
 		}
@@ -266,7 +280,7 @@ func readImageHeader(reader io.Reader, isFixed bool) (int, string, error) {
 	return numImages, imgType, nil
 }
 
-func readImageData(reader io.Reader, isFixed bool) ([]byte, error) {
+func (d *disbursement) parseImageData() ([]byte, error) {
 	var (
 		recLength int
 		imageData []byte
@@ -274,7 +288,7 @@ func readImageData(reader io.Reader, isFixed bool) ([]byte, error) {
 	// Record length
 	{
 		p := make([]byte, 4)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return imageData, err
 		}
@@ -287,12 +301,12 @@ func readImageData(reader io.Reader, isFixed bool) ([]byte, error) {
 
 	// Image data
 	{
-		if isFixed {
+		if d.isFixed {
 			recLength = 246
 		}
 
 		imageData = make([]byte, recLength)
-		_, err := reader.Read(imageData)
+		_, err := d.reader.Read(imageData)
 		if err != nil {
 			return imageData, err
 		}
@@ -301,7 +315,7 @@ func readImageData(reader io.Reader, isFixed bool) ([]byte, error) {
 	return imageData, nil
 }
 
-func readCheckTrailer(reader io.Reader, isFixed bool) error {
+func (d *disbursement) parseCheckTrailer(isFixed bool) error {
 	// Filler
 	var fillerLength = 86
 	if isFixed {
@@ -309,7 +323,7 @@ func readCheckTrailer(reader io.Reader, isFixed bool) error {
 	}
 
 	p := make([]byte, fillerLength)
-	_, err := reader.Read(p)
+	_, err := d.reader.Read(p)
 	if err != nil {
 		return err
 	}
@@ -317,11 +331,11 @@ func readCheckTrailer(reader io.Reader, isFixed bool) error {
 	return nil
 }
 
-func readOutputTrailer(reader io.Reader, isFixed bool) error {
+func (d *disbursement) parseFileTrailer(isFixed bool) error {
 	// File ID
 	{
 		p := make([]byte, 15)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return err
 		}
@@ -330,7 +344,7 @@ func readOutputTrailer(reader io.Reader, isFixed bool) error {
 	// Request ID
 	{
 		p := make([]byte, 15)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return err
 		}
@@ -339,7 +353,7 @@ func readOutputTrailer(reader io.Reader, isFixed bool) error {
 	// File version
 	{
 		p := make([]byte, 4)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return err
 		}
@@ -348,7 +362,7 @@ func readOutputTrailer(reader io.Reader, isFixed bool) error {
 	// File creation date
 	{
 		p := make([]byte, 8)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return err
 		}
@@ -357,7 +371,7 @@ func readOutputTrailer(reader io.Reader, isFixed bool) error {
 	// File creation time
 	{
 		p := make([]byte, 6)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return err
 		}
@@ -366,7 +380,7 @@ func readOutputTrailer(reader io.Reader, isFixed bool) error {
 	// Number of detail records
 	{
 		p := make([]byte, 6)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return err
 		}
@@ -380,7 +394,7 @@ func readOutputTrailer(reader io.Reader, isFixed bool) error {
 		}
 
 		p := make([]byte, fillerLength)
-		_, err := reader.Read(p)
+		_, err := d.reader.Read(p)
 		if err != nil {
 			return err
 		}
@@ -402,13 +416,18 @@ func main() {
 	defer fs.Close()
 
 	var (
+		imgCt   int
 		isFixed bool
 		checkNo string
 		imgType string
-		imgCt   int
+
+		reader = bufio.NewReader(fs)
+		disb   = &disbursement{
+			reader: reader,
+		}
+		hdrBuf = make([]byte, 4)
 	)
-	reader := bufio.NewReader(fs)
-	hdrBuf := make([]byte, 4)
+
 	for {
 		_, err := reader.Read(hdrBuf)
 		if err == io.EOF {
@@ -416,31 +435,27 @@ func main() {
 		}
 
 		switch string(hdrBuf) {
-		// file header
-		case "1200":
-			isFixed, err = readFileHeader(reader)
+		case TypeFileHeader:
+			err = disb.parseFileHeader()
 			if err != nil {
 				log.Fatalf("error while reading file header: %v", err)
 			}
 
-		// check index
-		case "1201":
-			_, checkNo, err = readCheckIndex(reader, isFixed)
+		case TypeCheckIndex:
+			_, checkNo, err = disb.parseCheckIndex()
 			if err != nil {
 				log.Fatalf("error while reading check index: %v", err)
 			}
 
-		// image header
-		case "1202":
-			_, imgType, err = readImageHeader(reader, isFixed)
+		case TypeImageHeader:
+			_, imgType, err = disb.parseImageHeader()
 			if err != nil {
 				log.Fatalf("error while reading image header: %v", err)
 			}
 
-		// image data
-		case "1203":
+		case TypeImageData:
 			imgCt++
-			image, err := readImageData(reader, isFixed)
+			image, err := disb.parseImageData()
 			if err != nil {
 				log.Fatalf("error while reading image data: %v", err)
 			}
@@ -456,16 +471,14 @@ func main() {
 
 			file.Close()
 
-		// check trailer
-		case "1204":
-			err := readCheckTrailer(reader, isFixed)
+		case TypeCheckTrailer:
+			err := disb.parseCheckTrailer(isFixed)
 			if err != nil {
 				log.Fatalf("error while reading check trailer: %v", err)
 			}
 
-		// file trailer
-		case "1209":
-			err := readOutputTrailer(reader, isFixed)
+		case TypeFileTrailer:
+			err := disb.parseFileTrailer(isFixed)
 			if err != nil {
 				log.Fatalf("error while reading file trailer: %v", err)
 			}
