@@ -19,7 +19,6 @@ func readFileHeader(reader io.Reader) (bool, error) {
 		if err != nil {
 			return isFixed, err
 		}
-		fmt.Println(string(p))
 	}
 
 	// Request ID
@@ -29,7 +28,6 @@ func readFileHeader(reader io.Reader) (bool, error) {
 		if err != nil {
 			return isFixed, err
 		}
-		fmt.Println(string(p))
 	}
 
 	// File Version
@@ -39,7 +37,6 @@ func readFileHeader(reader io.Reader) (bool, error) {
 		if err != nil {
 			return isFixed, err
 		}
-		fmt.Println(string(p))
 	}
 
 	// File creation date
@@ -49,7 +46,6 @@ func readFileHeader(reader io.Reader) (bool, error) {
 		if err != nil {
 			return isFixed, err
 		}
-		fmt.Println(string(p))
 	}
 
 	// File creation time
@@ -59,7 +55,6 @@ func readFileHeader(reader io.Reader) (bool, error) {
 		if err != nil {
 			return isFixed, err
 		}
-		fmt.Println(string(p))
 	}
 
 	// Number of check records
@@ -69,13 +64,6 @@ func readFileHeader(reader io.Reader) (bool, error) {
 		if err != nil {
 			return isFixed, err
 		}
-		fmt.Printf("Records: %s\n", string(p))
-
-		numCheckRec, err := strconv.Atoi(string(p))
-		if err != nil {
-			return isFixed, err
-		}
-		fmt.Printf("Check Records: %d\n", numCheckRec)
 	}
 
 	// Record size
@@ -85,7 +73,6 @@ func readFileHeader(reader io.Reader) (bool, error) {
 		if err != nil {
 			return isFixed, err
 		}
-		fmt.Println(string(p))
 
 		// Read filler
 		switch string(p) {
@@ -120,7 +107,6 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, error) {
 		if err != nil {
 			return numImages, err
 		}
-		fmt.Println(string(p))
 	}
 
 	// Routing transit number
@@ -130,7 +116,6 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, error) {
 		if err != nil {
 			return numImages, err
 		}
-		fmt.Println(string(p))
 	}
 
 	// Account number
@@ -140,7 +125,6 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, error) {
 		if err != nil {
 			return numImages, err
 		}
-		fmt.Println(string(p))
 	}
 
 	// Check number
@@ -150,7 +134,6 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, error) {
 		if err != nil {
 			return numImages, err
 		}
-		fmt.Println(string(p))
 	}
 
 	// Amount
@@ -160,7 +143,7 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, error) {
 		if err != nil {
 			return numImages, err
 		}
-		fmt.Println(string(p))
+
 	}
 
 	// Seq number
@@ -170,7 +153,6 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, error) {
 		if err != nil {
 			return numImages, err
 		}
-		fmt.Println(string(p))
 	}
 
 	// Posted date
@@ -180,7 +162,6 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, error) {
 		if err != nil {
 			return numImages, err
 		}
-		fmt.Println(string(p))
 	}
 
 	// Number of images
@@ -190,7 +171,6 @@ func readCheckIndex(reader io.Reader, isFixed bool) (int, error) {
 		if err != nil {
 			return numImages, err
 		}
-		fmt.Println(string(p))
 
 		numImages, err = strconv.Atoi(string(p))
 		if err != nil {
@@ -224,7 +204,6 @@ func readImageHeader(reader io.Reader, isFixed bool) (int, error) {
 		if err != nil {
 			return numImages, err
 		}
-		fmt.Println(string(p))
 	}
 
 	// Image side
@@ -234,7 +213,6 @@ func readImageHeader(reader io.Reader, isFixed bool) (int, error) {
 		if err != nil {
 			return numImages, err
 		}
-		fmt.Println(string(p))
 	}
 
 	// Number of records
@@ -244,7 +222,6 @@ func readImageHeader(reader io.Reader, isFixed bool) (int, error) {
 		if err != nil {
 			return numImages, err
 		}
-		fmt.Println(string(p))
 
 		numImages, err = strconv.Atoi(string(p))
 		if err != nil {
@@ -259,7 +236,6 @@ func readImageHeader(reader io.Reader, isFixed bool) (int, error) {
 		if err != nil {
 			return numImages, err
 		}
-		fmt.Println(string(p))
 	}
 
 	// Filler
@@ -279,20 +255,22 @@ func readImageHeader(reader io.Reader, isFixed bool) (int, error) {
 	return numImages, nil
 }
 
-func readImageData(reader io.Reader, isFixed bool) error {
-	var recLength int
+func readImageData(reader io.Reader, isFixed bool) ([]byte, error) {
+	var (
+		recLength int
+		imageData []byte
+	)
 	// Record length
 	{
 		p := make([]byte, 4)
 		_, err := reader.Read(p)
 		if err != nil {
-			return err
+			return imageData, err
 		}
-		fmt.Println(string(p))
 
 		recLength, err = strconv.Atoi(string(p))
 		if err != nil {
-			return err
+			return imageData, err
 		}
 	}
 
@@ -302,15 +280,14 @@ func readImageData(reader io.Reader, isFixed bool) error {
 			recLength = 246
 		}
 
-		p := make([]byte, recLength)
-		_, err := reader.Read(p)
+		imageData = make([]byte, recLength)
+		_, err := reader.Read(imageData)
 		if err != nil {
-			return err
+			return imageData, err
 		}
-		fmt.Println(p)
 	}
 
-	return nil
+	return imageData, nil
 }
 
 func readCheckTrailer(reader io.Reader, isFixed bool) error {
@@ -337,7 +314,6 @@ func readOutputTrailer(reader io.Reader, isFixed bool) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(string(p))
 	}
 
 	// Request ID
@@ -347,7 +323,6 @@ func readOutputTrailer(reader io.Reader, isFixed bool) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(string(p))
 	}
 
 	// File version
@@ -357,7 +332,6 @@ func readOutputTrailer(reader io.Reader, isFixed bool) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(string(p))
 	}
 
 	// File creation date
@@ -367,7 +341,6 @@ func readOutputTrailer(reader io.Reader, isFixed bool) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(string(p))
 	}
 
 	// File creation time
@@ -377,7 +350,6 @@ func readOutputTrailer(reader io.Reader, isFixed bool) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(string(p))
 	}
 
 	// Number of detail records
@@ -387,7 +359,6 @@ func readOutputTrailer(reader io.Reader, isFixed bool) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(string(p))
 	}
 
 	// Filler
@@ -416,12 +387,13 @@ func main() {
 
 	var (
 		isFixed bool
+		imgCt   int
 	)
 	reader := bufio.NewReader(fs)
 	hdrBuf := make([]byte, 4)
 	for {
-		v, _ := reader.Read(hdrBuf)
-		if v == 0 {
+		_, err := reader.Read(hdrBuf)
+		if err == io.EOF {
 			break
 		}
 
@@ -432,41 +404,46 @@ func main() {
 			if err != nil {
 				log.Fatalf("error while reading file header: %v", err)
 			}
-
-			log.Printf("isFixed: %v", isFixed)
 		case "1201":
 			// check index
-			numImages, err := readCheckIndex(reader, isFixed)
+			_, err := readCheckIndex(reader, isFixed)
 			if err != nil {
-				log.Fatalf("error while reading file header: %v", err)
+				log.Fatalf("error while reading check index: %v", err)
 			}
-
-			log.Printf("number of images: %v", numImages)
 		case "1202":
 			// image header
-			numImages, err := readImageHeader(reader, isFixed)
+			_, err := readImageHeader(reader, isFixed)
 			if err != nil {
-				log.Fatalf("error while reading file header: %v", err)
+				log.Fatalf("error while reading image header: %v", err)
+			}
+		case "1203":
+			imgCt++
+			// image data
+			image, err := readImageData(reader, isFixed)
+			if err != nil {
+				log.Fatalf("error while reading image data: %v", err)
 			}
 
-			log.Printf("number of images: %v", numImages)
-		case "1203":
-			// image data
-			err := readImageData(reader, isFixed)
+			file, err := os.Create(fmt.Sprintf("image_%d", imgCt))
 			if err != nil {
-				log.Fatalf("error while reading file header: %v", err)
+				log.Fatalf("error while creating image file: %v", err)
+			}
+			defer file.Close()
+
+			if _, err := file.Write(image); err != nil {
+				log.Fatalf("error while writing to image file: %v", err)
 			}
 		case "1204":
 			// check trailer
 			err := readCheckTrailer(reader, isFixed)
 			if err != nil {
-				log.Fatalf("error while reading file header: %v", err)
+				log.Fatalf("error while reading check trailer: %v", err)
 			}
 		case "1209":
 			// file trailer
 			err := readOutputTrailer(reader, isFixed)
 			if err != nil {
-				log.Fatalf("error while reading file header: %v", err)
+				log.Fatalf("error while reading file trailer: %v", err)
 			}
 		}
 	}
