@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync"
 )
 
 // Various header types
@@ -199,17 +200,18 @@ func (d *disbursement) parseFileTrailer(isFixed bool) error {
 	return nil
 }
 
-// TODO: Make sure that we read the correct number of records as specified in the headers.
-func main() {
-	if len(os.Args) < 2 {
-		log.Fatalf("missing required arguments")
-	}
-
-	fs, err := os.Open(os.Args[1])
+// Run runs the image extracter program
+func Run(fileName string) {
+	fs, err := os.Open(fileName)
 	if err != nil {
 		log.Fatalf("error reading dat file")
 	}
 	defer fs.Close()
+
+	// Setup file writer queue
+	wg := &sync.WaitGroup{}
+	fQueue := make(chan fileInfo)
+	go writer(wg, fQueue)
 
 	var (
 		imgCt   int
@@ -256,16 +258,12 @@ func main() {
 				log.Fatalf("error while reading image data: %v", err)
 			}
 
-			file, err := os.Create(fmt.Sprintf("%s.%s", checkNo, imgType))
-			if err != nil {
-				log.Fatalf("error while creating image file: %v", err)
+			// Push to write queue
+			wg.Add(1)
+			fQueue <- fileInfo{
+				name: fmt.Sprintf("%s.%s", checkNo, imgType),
+				data: image,
 			}
-
-			if _, err := file.Write(image); err != nil {
-				log.Fatalf("error while writing to image file: %v", err)
-			}
-
-			file.Close()
 
 		case TypeCheckTrailer:
 			err := disb.parseCheckTrailer(isFixed)
@@ -280,4 +278,15 @@ func main() {
 			}
 		}
 	}
+
+	wg.Wait()
+}
+
+// TODO: Make sure that we read the correct number of records as specified in the headers.
+func main() {
+	if len(os.Args) < 2 {
+		log.Fatalf("missing required arguments")
+	}
+
+	Run(os.Args[1])
 }
